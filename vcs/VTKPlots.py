@@ -14,19 +14,6 @@ import VTKAnimate
 import vcsvtk
 
 
-class VCSInteractorStyle(vtk.vtkInteractorStyleUser):
-
-    def __init__(self, parent):
-        self.AddObserver("LeftButtonPressEvent", parent.leftButtonPressEvent)
-        self.AddObserver(
-            "LeftButtonReleaseEvent",
-            parent.leftButtonReleaseEvent)
-        self.AddObserver("ModifiedEvent", parent.configureEvent)
-        self.AddObserver("ConfigureEvent", parent.configureEvent)
-        if sys.platform == "darwin":
-            self.AddObserver("RenderEvent", parent.renderEvent)
-
-
 class VTKVCSBackend(object):
 
     def __init__(self, canvas, renWin=None, debug=False, bg=None, geometry=None):
@@ -78,7 +65,7 @@ class VTKVCSBackend(object):
         if renWin is not None:
             self.renWin = renWin
             if renWin.GetInteractor() is None and self.bg is False:
-                self.createDefaultInteractor()
+                self.createInteractor()
 
         if sys.platform == "darwin":
             self.reRender = False
@@ -93,20 +80,6 @@ class VTKVCSBackend(object):
             warnings.warn("Cannot interact if you did not open the canvas yet")
             return
         interactor = self.renWin.GetInteractor()
-        # Mac seems to handle events a bit differently
-        # Need to add observers on renWin
-        # Linux is fine w/o it so no need to do it
-        if sys.platform == "darwin":
-            self.renWin.AddObserver("RenderEvent", self.renderEvent)
-            self.renWin.AddObserver(
-                "LeftButtonPressEvent",
-                self.leftButtonPressEvent)
-            self.renWin.AddObserver(
-                "LeftButtonReleaseEvent",
-                self.leftButtonReleaseEvent)
-            self.renWin.AddObserver("ModifiedEvent", self.configureEvent)
-            self.renWin.AddObserver("ConfigureEvent", self.configureEvent)
-            self.renWin.AddObserver("EndEvent", self.endEvent)
         if interactor is None:
             warnings.warn("Cannot start interaction. Blank plot?")
             return
@@ -114,7 +87,7 @@ class VTKVCSBackend(object):
             "Press 'Q' to exit interactive mode and continue script execution")
         self.showGUI()
         interactor.Start()
-
+        
     def endEvent(self, obj, event):
         if self.renWin is not None:
             if self.reRender:
@@ -354,16 +327,22 @@ class VTKVCSBackend(object):
         self.createLogo()
         self._renderers = {}
 
-    def createDefaultInteractor(self, ren=None):
-        defaultInteractor = self.renWin.GetInteractor()
-        if defaultInteractor is None:
-            defaultInteractor = vtk.vtkRenderWindowInteractor()
-        self.vcsInteractorStyle = VCSInteractorStyle(self)
-        if ren:
-            self.vcsInteractorStyle.SetCurrentRenderer(ren)
-        defaultInteractor.SetInteractorStyle(self.vcsInteractorStyle)
-        defaultInteractor.SetRenderWindow(self.renWin)
-        self.vcsInteractorStyle.On()
+    def createInteractor(self):
+        interactor = self.renWin.GetInteractor()
+        if interactor is None:
+            interactor = vtk.vtkRenderWindowInteractor()
+        interactor.SetRenderWindow(self.renWin)
+        interactor.AddObserver("RenderEvent", self.renderEvent)
+        interactor.AddObserver(
+            "LeftButtonPressEvent",
+            self.leftButtonPressEvent)
+        interactor.AddObserver(
+            "LeftButtonReleaseEvent",
+            self.leftButtonReleaseEvent)
+        interactor.AddObserver("ModifiedEvent", self.configureEvent)
+        interactor.AddObserver("ConfigureEvent", self.configureEvent)
+        if sys.platform == "darwin":
+            interactor.AddObserver("EndEvent", self.endEvent)
 
     def createRenWin(self, *args, **kargs):
         if self.renWin is None:
@@ -391,9 +370,8 @@ class VTKVCSBackend(object):
         if self.renderer is None:
             self.renderer = self.createRenderer()
             if not self.bg:
-                self.createDefaultInteractor(self.renderer)
+                self.createInteractor()
             self.renWin.AddRenderer(self.renderer)
-            self.renWin.AddObserver("ModifiedEvent", self.configureEvent)
         if self.bg:
             self.renWin.SetOffScreenRendering(True)
         if "open" in kargs and kargs["open"]:
