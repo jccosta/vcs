@@ -1,117 +1,15 @@
-name: '2.6'
+name: 'vcs'
 channels:
 - uvcdat
 - !!python/unicode 'defaults'
 dependencies:
-- basemap=1.0.7=np19py27_0
-- cffi=1.8.3=py27_0
-- cloog=0.18.0=0
-- cryptography=1.5.3=py27_0
-- curl=7.49.0=1
-- enum34=1.1.6=py27_0
-- freetype=2.5.5=1
-- geos=3.3.3=0
-- gmp=5.1.2=6
-- idna=2.1=py27_0
-- ipaddress=1.0.17=py27_0
-- isl=0.12.2=1
-- jbig=2.1=0
-- jpeg=8d=2
-- libpng=1.6.17=0
-- libtiff=4.0.6=2
-- matplotlib=1.4.3=np19py27_3
-- mkl=11.3.3=0
-- mpc=1.0.1=0
-- mpfr=3.1.2=0
-- nose=1.3.7=py27_1
-- numpy=1.9.2=py27_2
-- openssl=1.0.2j=0
-- pip=9.0.1=py27_0
-- pyasn1=0.1.9=py27_0
-- pycparser=2.17=py27_0
-- pyopenssl=16.2.0=py27_0
-- pyparsing=2.0.3=py27_0
-- pyqt=4.11.3=py27_0
-- python=2.7.12=1
-- python-dateutil=2.6.0=py27_0
-- pytz=2016.7=py27_0
-- qt=4.8.6=3
-- readline=6.2=2
-- requests=2.12.0=py27_0
-- scikit-learn=0.16.1=np19py27_0
-- scipy=0.17.1=np19py27_1
-- setuptools=27.2.0=py27_0
-- sip=4.16.5=py27_0
-- six=1.10.0=py27_0
-- sqlite=3.13.0=0
-- tk=8.5.18=0
-- uvcdat::asciidata=2.6=UVCDAT
-- uvcdat::binaryio=2.6=UVCDAT
-- uvcdat::cdat_info=2.6.1=UVCDAT
-- uvcdat::cdms2=2.6.1=UVCDAT
-- uvcdat::cdtime=2.6.1=UVCDAT
-- uvcdat::cdutil=2.6=UVCDAT
-- uvcdat::clapack=3.2.1=UVCDAT
-- uvcdat::cmor=2.9.2=PCMDI
-- uvcdat::cssgrid=2.6.1=UVCDAT
-- uvcdat::distarray=2.6=UVCDAT
-- uvcdat::dsgrid=2.6=UVCDAT
-- uvcdat::dv3d=2.6=UVCDAT
-- uvcdat::esg=2.6=UVCDAT
-- uvcdat::esmf=ESMF_6_3_0rp1_ESMP_01=UVCDAT
-- uvcdat::eztemplate=2.6=UVCDAT
-- uvcdat::ffmpeg=2.7.0=UVCDAT
-- uvcdat::g2clib=1.4.0b=UVCDAT
-- uvcdat::genutil=2.6=UVCDAT
-- uvcdat::gfortran=4.9.3=1
-- uvcdat::hdf5=1.8.16=UVCDAT
-- uvcdat::hdf5tools=2.6=UVCDAT
-- uvcdat::jasper=1.900.1=UVCDAT
-- uvcdat::lapack=3.4.2=UVCDAT
-- uvcdat::libcdms=2.6.1=UVCDAT
-- uvcdat::libcf=1.0.beta11=UVCDAT
-- uvcdat::libdrs_c=1.0.1=UVCDAT
-- uvcdat::libdrs_f=1.0.1=UVCDAT
-- uvcdat::libnetcdf=4.3.3.1=UVCDAT
-- uvcdat::lmoments=2.6.1=UVCDAT
-- uvcdat::natgrid=2.6=UVCDAT
-- uvcdat::ort=2.6.1=UVCDAT
-- uvcdat::ossuuid=1.6.2=UVCDAT
-- uvcdat::output_viewer=1.2.0=py27_0
-- uvcdat::proj4=4.9.2=UVCDAT
-- uvcdat::pydebug=2.6=UVCDAT
-- uvcdat::regrid2=2.6.1=UVCDAT
-- uvcdat::regridpack=2.6.1=UVCDAT
-- uvcdat::shgrid=2.6.1=UVCDAT
-- uvcdat::spherepack=2.6.1=UVCDAT
-- uvcdat::thermo=2.6=UVCDAT
-- uvcdat::trends=2.6=UVCDAT
-- uvcdat::udunits2=2.2.17=UVCDAT
-- uvcdat::unidata=2.6=UVCDAT
-- uvcdat::uvcdat=2.6.1=UVCDAT
-- uvcdat::uvcmetrics=2.0=UVCDAT
-- uvcdat::vistrails=master=UVCDAT
-- uvcdat::vtk=7.1.0.2.6=uvcdat_master
-- uvcdat::wk=2.6=UVCDAT
-- uvcdat::x264=20151006.2245=UVCDAT
-- uvcdat::xmgrace=2.6=UVCDAT
-- uvcdat::yasm=1.2.0=UVCDAT
-- uvcdat::zonalmeans=2.6.1=UVCDAT
-- wheel=0.29.0=py27_0
-- xz=5.2.2=0
-- zlib=1.2.8=3
-- pip:
-  - adamsregrid==0.0.0
-  - cdat-info==0.0.0
-  - cdms==1.0
-  - ma==1.0
-  - metrics==1.0.0
-  - mv==1.0
-  - mv2==1.0
-  - output-viewer==1.2.0
-  - regrid==1.0
-  - sh==0.0.0
-  - sphere==0.0.0
-  - udunits==1.0
-  - unknown==0.0.0
-prefix: /Users/fries2/anaconda2/envs/2.6
+- uvcdat::cdms2
+- uvcdat::vtk
+- ffmpeg
+- uvcdat::dv3d
+- uvcdat::cdat_info
+- uvcdat::genutil
+- uvcdat::cdutil
+- uvcdat::unidata
+- requests
+- uvcdat::vcsaddons
