@@ -94,7 +94,6 @@ class IsofillPipeline(Pipeline2D):
             for i in range(numLevels):
                 r, g, b, a = self.getColorIndexOrRGBA(_colorMap, self._contourColors[i])
                 lut.SetTableValue(i, r / 100., g / 100., b / 100., a / 100.)
-
             mapper.SetLookupTable(lut)
             if numpy.allclose(self._contourLevels[0], -1.e20):
                 lmn = self._min - 1.

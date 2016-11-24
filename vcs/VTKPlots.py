@@ -13,6 +13,278 @@ import inspect
 import VTKAnimate
 import vcsvtk
 
+# Not used currently
+def noclip(ax):
+     '''Turn off all clipping in axes ax; call immediately before drawing'''
+     ax.set_clip_on(False)
+     artists = []
+     artists.extend(ax.collections)
+     artists.extend(ax.patches)
+     artists.extend(ax.lines)
+     artists.extend(ax.texts)
+     artists.extend(ax.artists)
+     for a in artists:
+         a.set_clip_on(False)
+
+def vtkToMatplotlibText(axes, ren, prop):
+    text = prop.GetInput()
+    coord = prop.GetActualPositionCoordinate()
+    textprop = prop.GetScaledTextProperty()
+    textPos2 = coord.GetComputedDoubleViewportValue(ren)
+    mplPos = axes.transData.inverted().transform(
+                (textPos2[0], textPos2[1]))
+    x = mplPos[0]
+    y = mplPos[1]
+    ha = 'center'
+    if textprop.GetJustification() == 0:
+        ha = 'left'
+    elif textprop.GetJustification() == 2:
+        ha = 'right'
+    axes.text(x, y, text, fontsize=textprop.GetFontSize() * 0.2,
+                ha=ha, va='center',
+                rotation=textprop.GetOrientation())
+
+def vtkToMatplotlibColor(vtklut, scalars):
+    '''Generate Matplotlib colormap using information from VTK'''
+    from matplotlib.colors import LinearSegmentedColormap
+
+    colors = []
+    if (scalars.GetNumberOfComponents() == 4):
+        noOfColors = scalars.GetNumberOfTuples()
+        for i in range(0, noOfColors):
+            tupl = scalars.GetTuple(i)
+            colors.append([tupl[0]/255.0, tupl[1]/255.0, tupl[2]/255.0, tupl[3]/255.0])
+        cmap = LinearSegmentedColormap.from_list('mycmap', colors, N=noOfColors)
+    else:
+        noOfColors = vtklut.GetNumberOfTableValues()
+        for i in range(0, noOfColors):
+            tupl = vtklut.GetTableValue(i)
+            colors.append(tupl)
+        cmap = LinearSegmentedColormap.from_list('mycmap', colors, N=noOfColors)
+    return cmap
+
+def vtkToMatplotlib(renWin):
+    import math
+    from numpy import zeros
+    import matplotlib.pyplot as plt
+    import matplotlib.gridspec as gridspec
+    from matplotlib.collections import LineCollection
+
+    # Compute minimum viewport coordinates
+    #-------------------------------------
+    renderers = renWin.GetRenderers()
+    renderers.InitTraversal()
+    ren = renderers.GetNextItem()
+    tightvp = None
+
+    while ren is not None:
+        vp = ren.GetViewport()
+
+        if tightvp is None:
+            tightvp = [0, 0, 0, 0]
+            tightvp[0] = vp[0]
+            tightvp[1] = vp[1]
+            tightvp[2] = vp[2]
+            tightvp[3] = vp[3]
+        else:
+            if vp[0] > tightvp[0]:
+                tightvp[0] = vp[0]
+            if vp[1] > tightvp[1]:
+                tightvp[1] = vp[1]
+            if vp[2] < tightvp[2]:
+                tightvp[2] = vp[2]
+            if vp[3] < tightvp[3]:
+                tightvp[3] = vp[3]
+        ren = renderers.GetNextItem()
+
+    # Now traverse the scene
+    #------------------------
+    renderers = renWin.GetRenderers()
+    renderers.InitTraversal()
+    ren = renderers.GetNextItem()
+
+    if ren is None:
+        print 'nothing to write'
+        return
+
+    # Initialize mpl plot
+    renwinSize = renWin.GetSize()
+    aspect = renwinSize[0]/float(renwinSize[1])
+
+    fig = plt.figure(1, figsize=(renwinSize[0]/300., renwinSize[1]/300.), dpi=300)
+    fig.set_facecolor('white')
+
+    gs1 = gridspec.GridSpec(1, 1)
+    gs1.update(left=tightvp[0], right=tightvp[2], bottom=tightvp[1], top=tightvp[3])
+    sp = plt.subplot(gs1[0, 0])
+    sp.set_clip_on(False)
+    axes = plt.gca()
+    axes.set_clip_on(False)
+    axes.get_xaxis().set_ticks([])
+    axes.get_yaxis().set_ticks([])
+    axes.set_xlim([-180, 175])
+    axes.set_ylim([-90, 90])
+
+    index = 0
+    mplline = []
+    xx = []
+    yy = []
+    maxX = None
+    maxY = None
+
+    while ren is not None:
+        # print ren
+        props = ren.GetViewProps()
+        props.InitTraversal()
+        prop = props.GetNextProp()
+
+        while prop is not None:
+            # print prop.GetClassName()
+            if prop.GetClassName() == 'vtkOpenGLActor':
+                mapper = prop.GetMapper()
+                # print mapper.GetClassName()
+                if mapper.GetClassName() == 'vtkPainterPolyDataMapper':
+                    mapper.Update()
+                    data = mapper.GetInput()
+
+                    sf = vtk.vtkShrinkPolyData()
+                    sf.SetShrinkFactor(1)
+                    sf.SetInputData(data)
+                    sf.Update()
+                    data = sf.GetOutput()
+
+                    ctop = vtk.vtkCellDataToPointData()
+                    ctop.AddInputData(data)
+                    ctop.Update()
+                    data = ctop.GetOutput()
+
+                    filter = vtk.vtkTriangleFilter()
+                    filter.SetInputData(data)
+                    filter.Update()
+                    data = filter.GetOutput()
+
+                    triangles = data.GetPolys()
+                    points = data.GetPoints()
+                    lines = data.GetLines()
+                    nlines = 0
+                    ntri = 0
+
+                    if lines.GetNumberOfCells() == 0:
+                        lines = None
+
+                    if (triangles is not None):
+                        ntri = triangles.GetNumberOfCells()
+
+                    if lines is not None:
+                        nlines = lines.GetNumberOfCells()
+
+                    npts = points.GetNumberOfPoints()
+
+                    tri = zeros((ntri, 3))
+                    x = zeros(npts)
+                    y = zeros(npts)
+                    z = zeros(npts)
+
+                    idlist = vtk.vtkIdList()
+
+                    for i in xrange(0, ntri):
+                        cell = triangles.GetNextCell(idlist)
+                        tri[i, 0] = idlist.GetId(0)
+                        tri[i, 1] = idlist.GetId(1)
+                        tri[i, 2] = idlist.GetId(2)
+
+                    for i in xrange(0, nlines):
+                        mat = prop.GetUserTransform()
+
+                        cell = lines.GetNextCell(idlist)
+                        aline = []
+                        point1 = points.GetPoint(idlist.GetId(0))
+                        point2 = points.GetPoint(idlist.GetId(1))
+
+                        transpt1 = mat.TransformPoint(point1[0], point1[1], point1[2])
+                        transpt2 = mat.TransformPoint(point2[0], point2[1], point2[2])
+
+                        ren.SetWorldPoint(transpt1[0], transpt1[1], transpt1[2], 1.0)
+                        ren.WorldToDisplay()
+                        dppt = ren.GetDisplayPoint()
+                        mplpt1 = axes.transData.inverted().transform((dppt[0], dppt[1]))
+
+                        ren.SetWorldPoint(transpt2[0], transpt2[1], transpt2[2], 1.0)
+                        ren.WorldToDisplay()
+                        dpB = ren.GetDisplayPoint()
+                        mplpt2 = axes.transData.inverted().transform((dpB[0], dpB[1]))
+                        aline.append([mplpt1[0], mplpt1[1]])
+                        aline.append([mplpt2[0], mplpt2[1]])
+                        mplline.append(aline)
+
+                    for i in xrange(npts):
+                        pt = points.GetPoint(i)
+                        mat = prop.GetUserTransform()
+                        transpt = mat.TransformPoint(pt[0], pt[1], pt[2])
+
+                        ren.SetWorldPoint(transpt[0], transpt[1], transpt[2], 1.0)
+                        ren.WorldToDisplay()
+                        dispt = ren.GetDisplayPoint()
+
+                        mplpt = axes.transData.inverted().transform((dispt[0], dispt[1]))
+
+                        x[i] = mplpt[0]
+                        y[i] = mplpt[1]
+
+                    if (data.GetPointData().GetNumberOfArrays() >= 1):
+                        vels = data.GetPointData().GetScalars()
+                        noOfComponents = vels.GetNumberOfComponents()
+                        nvls = vels.GetNumberOfTuples()
+                        ux = zeros(nvls)
+                        uy = zeros(nvls)
+                        disableCliping = False
+
+                        if len(tri) != 0:
+                            if noOfComponents == 4:
+                                for i in xrange(0, nvls):
+                                    ux[i] = i
+                                disableCliping = True
+                            else:
+                                for i in xrange(0, nvls):
+                                    U = vels.GetTuple(i)
+                                    ux[i] = U[0]
+
+                            if triangles is not None:
+                                cmap = vtkToMatplotlibColor(prop.GetMapper().GetLookupTable(), vels)
+                                a = axes.tricontourf(x, y, tri, ux, cmap=cmap, antialiased=True)
+
+                                if disableCliping:
+                                    for collection in a.collections:
+                                        collection.set_clip_on(False)
+
+                    # Debug helper
+                    # elif triangles is not None:
+                    #     writer = vtk.vtkXMLPolyDataWriter()
+                    #     filename = "foo" + str(index) + ".vtp"
+                    #     writer.SetFileName(filename)
+                    #     writer.SetInputData(data)
+                    #     writer.Write()
+
+                index += 1
+
+            elif prop.GetClassName() == 'vtkTextActor':
+                vtkToMatplotlibText(axes, ren, prop)
+
+
+            prop = props.GetNextProp()
+        ren = renderers.GetNextItem()
+
+    if len(mplline) > 0:
+        # print mplline
+        lc = LineCollection(mplline, linestyles='solid', colors='black')
+        lc.set_linewidth(0.1)
+        lc.set_clip_on(False)
+        axes.add_collection(lc)
+
+    # plt.xlim((-200, 200))
+    # plt.ylim((-100, 100))
+    plt.show()
+    return
 
 class VCSInteractorStyle(vtk.vtkInteractorStyleUser):
 
@@ -1083,6 +1355,10 @@ class VTKVCSBackend(object):
         if self.renWin is None:
             raise Exception("Nothing on Canvas to dump to file")
 
+        # TODO: Aashish
+        vtkToMatplotlib(self.renWin)
+        return
+
         self.hideGUI()
 
         gl = vtk.vtkOpenGLGL2PSExporter()
@@ -1317,7 +1593,6 @@ class VTKVCSBackend(object):
 
     def fitToViewport(self, Actor, vp, wc=None, geoBounds=None, geo=None, priority=None,
                       create_renderer=False):
-
         # Data range in World Coordinates
         if priority == 0:
             return (None, 1, 1)
@@ -1344,6 +1619,7 @@ class VTKVCSBackend(object):
             Renderer = self.createRenderer()
             self.renWin.AddRenderer(Renderer)
             Renderer.SetViewport(vp[0], vp[2], vp[1], vp[3])
+            # print 'vp ', vp
 
             if Yrg[0] > Yrg[1]:
                 # Yrg=[Yrg[1],Yrg[0]]
