@@ -46,7 +46,7 @@ def vtkToMatplotlibText(axes, ren, prop):
 
 def vtkToMatplotlibColor(vtklut, scalars):
     '''Generate Matplotlib colormap using information from VTK'''
-    from matplotlib.colors import LinearSegmentedColormap
+    from matplotlib.colors import ListedColormap
 
     colors = []
     if (scalars.GetNumberOfComponents() == 4):
@@ -54,51 +54,28 @@ def vtkToMatplotlibColor(vtklut, scalars):
         for i in range(0, noOfColors):
             tupl = scalars.GetTuple(i)
             colors.append([tupl[0]/255.0, tupl[1]/255.0, tupl[2]/255.0, tupl[3]/255.0])
-        cmap = LinearSegmentedColormap.from_list('mycmap', colors, N=noOfColors)
+        cmap = ListedColormap(colors, 'mycmap')
     else:
         noOfColors = vtklut.GetNumberOfTableValues()
         for i in range(0, noOfColors):
             tupl = vtklut.GetTableValue(i)
             colors.append(tupl)
-        cmap = LinearSegmentedColormap.from_list('mycmap', colors, N=noOfColors)
+        cmap = ListedColormap(colors, 'mycmap')
     return cmap
 
-def vtkToMatplotlib(renWin):
+def vtkToMatplotlib(renWin, fileName = None):
     import math
     from numpy import zeros
     import matplotlib.pyplot as plt
     import matplotlib.gridspec as gridspec
     from matplotlib.collections import LineCollection
+    from matplotlib.colors import Normalize
+    import time
 
-    # Compute minimum viewport coordinates
-    #-------------------------------------
-    renderers = renWin.GetRenderers()
-    renderers.InitTraversal()
-    ren = renderers.GetNextItem()
-    tightvp = None
-
-    while ren is not None:
-        vp = ren.GetViewport()
-
-        if tightvp is None:
-            tightvp = [0, 0, 0, 0]
-            tightvp[0] = vp[0]
-            tightvp[1] = vp[1]
-            tightvp[2] = vp[2]
-            tightvp[3] = vp[3]
-        else:
-            if vp[0] > tightvp[0]:
-                tightvp[0] = vp[0]
-            if vp[1] > tightvp[1]:
-                tightvp[1] = vp[1]
-            if vp[2] < tightvp[2]:
-                tightvp[2] = vp[2]
-            if vp[3] < tightvp[3]:
-                tightvp[3] = vp[3]
-        ren = renderers.GetNextItem()
-
+    t0 = time.time()
+        
     # Now traverse the scene
-    #------------------------
+    #-----------------------
     renderers = renWin.GetRenderers()
     renderers.InitTraversal()
     ren = renderers.GetNextItem()
@@ -114,32 +91,47 @@ def vtkToMatplotlib(renWin):
     fig = plt.figure(1, figsize=(renwinSize[0]/300., renwinSize[1]/300.), dpi=300)
     fig.set_facecolor('white')
 
-    gs1 = gridspec.GridSpec(1, 1)
-    gs1.update(left=tightvp[0], right=tightvp[2], bottom=tightvp[1], top=tightvp[3])
-    sp = plt.subplot(gs1[0, 0])
-    sp.set_clip_on(False)
-    axes = plt.gca()
-    axes.set_clip_on(False)
-    axes.get_xaxis().set_ticks([])
-    axes.get_yaxis().set_ticks([])
-    axes.set_xlim([-180, 175])
-    axes.set_ylim([-90, 90])
-
+    
     index = 0
-    mplline = []
-    xx = []
-    yy = []
-    maxX = None
-    maxY = None
 
+    prevVp = [0.0, 0.0, 0.0, 0.0]
+    curVp = [0.0, 0.0, 1.0, 1.0]
+    mplline = []
     while ren is not None:
+        # skip renderer used for selection
+        if (not ren.GetDraw()):
+            ren = renderers.GetNextItem()
+            continue
+        vp = ren.GetViewport()
+        #print "vp: ", vp
+        if (not numpy.allclose(vp, [0.0, 0.0, 1.0, 1.0])):
+            curVp = vp
+        if (not numpy.allclose(curVp, prevVp)):
+            pos = [curVp[0], curVp[1], curVp[2] - curVp[0], curVp[3] - curVp[1]]
+            axes = plt.axes(pos)
+            axes.set_clip_on(False)
+            axes.get_xaxis().set_ticks([])
+            axes.get_yaxis().set_ticks([])
+            props = ren.GetViewProps()
+            props.InitTraversal()
+            prop = props.GetNextProp()
+            if prop and prop.GetClassName() == 'vtkOpenGLActor':
+                mapper = prop.GetMapper()
+                if mapper.GetClassName() == 'vtkPainterPolyDataMapper':
+                    mapper.Update()
+                    data = mapper.GetInput()
+                    bounds = data.GetBounds()
+                    axes.set_xlim([bounds[0], bounds[1]])
+                    axes.set_ylim([bounds[2], bounds[3]])
+            prevVp = curVp
+
         # print ren
         props = ren.GetViewProps()
         props.InitTraversal()
         prop = props.GetNextProp()
 
         while prop is not None:
-            # print prop.GetClassName()
+            #print prop.GetClassName()
             if prop.GetClassName() == 'vtkOpenGLActor':
                 mapper = prop.GetMapper()
                 # print mapper.GetClassName()
@@ -164,13 +156,11 @@ def vtkToMatplotlib(renWin):
                     data = filter.GetOutput()
 
                     triangles = data.GetPolys()
-                    points = data.GetPoints()
                     lines = data.GetLines()
-                    nlines = 0
+                    points = data.GetPoints()
                     ntri = 0
-
-                    if lines.GetNumberOfCells() == 0:
-                        lines = None
+                    nlines = 0
+                    npts = 0
 
                     if (triangles is not None):
                         ntri = triangles.GetNumberOfCells()
@@ -178,7 +168,8 @@ def vtkToMatplotlib(renWin):
                     if lines is not None:
                         nlines = lines.GetNumberOfCells()
 
-                    npts = points.GetNumberOfPoints()
+                    if (points is not None):
+                        npts = points.GetNumberOfPoints()
 
                     tri = zeros((ntri, 3))
                     x = zeros(npts)
@@ -217,6 +208,14 @@ def vtkToMatplotlib(renWin):
                         aline.append([mplpt2[0], mplpt2[1]])
                         mplline.append(aline)
 
+                    if len(mplline) > 0:
+                        # print mplline
+                        lc = LineCollection(mplline, linestyles='solid', colors='black')
+                        lc.set_linewidth(0.1)
+                        lc.set_clip_on(False)
+                        axes.add_collection(lc)
+                    mplline = []
+
                     for i in xrange(npts):
                         pt = points.GetPoint(i)
                         mat = prop.GetUserTransform()
@@ -250,40 +249,27 @@ def vtkToMatplotlib(renWin):
                                     ux[i] = U[0]
 
                             if triangles is not None:
-                                cmap = vtkToMatplotlibColor(prop.GetMapper().GetLookupTable(), vels)
-                                a = axes.tricontourf(x, y, tri, ux, cmap=cmap, antialiased=True)
+                                cmap = vtkToMatplotlibColor(mapper.GetLookupTable(), vels)
+                                a = axes.tripcolor(x, y, tri, ux, cmap=cmap)
 
                                 if disableCliping:
-                                    for collection in a.collections:
-                                        collection.set_clip_on(False)
-
-                    # Debug helper
-                    # elif triangles is not None:
-                    #     writer = vtk.vtkXMLPolyDataWriter()
-                    #     filename = "foo" + str(index) + ".vtp"
-                    #     writer.SetFileName(filename)
-                    #     writer.SetInputData(data)
-                    #     writer.Write()
-
-                index += 1
+                                    a.set_clip_on(False)
 
             elif prop.GetClassName() == 'vtkTextActor':
                 vtkToMatplotlibText(axes, ren, prop)
-
-
+            index += 1
             prop = props.GetNextProp()
         ren = renderers.GetNextItem()
 
-    if len(mplline) > 0:
-        # print mplline
-        lc = LineCollection(mplline, linestyles='solid', colors='black')
-        lc.set_linewidth(0.1)
-        lc.set_clip_on(False)
-        axes.add_collection(lc)
-
     # plt.xlim((-200, 200))
     # plt.ylim((-100, 100))
-    plt.show()
+    t1 = time.time()
+    print "export to matplotlib took: ", (t1 - t0)
+
+    if (fileName):
+        plt.savefig(fileName)
+    else:
+        plt.show()
     return
 
 class VCSInteractorStyle(vtk.vtkInteractorStyleUser):
@@ -1351,12 +1337,13 @@ class VTKVCSBackend(object):
        Exporting text as paths eliminates all of these problems with portability across
        viewers and inconsistent text object handling between output formats.
        """
+        import time
 
+        #t0 = time.time()
         if self.renWin is None:
             raise Exception("Nothing on Canvas to dump to file")
 
-        # TODO: Aashish
-        vtkToMatplotlib(self.renWin)
+        vtkToMatplotlib(self.renWin, file)
         return
 
         self.hideGUI()
@@ -1399,6 +1386,8 @@ class VTKVCSBackend(object):
         else:
             raise Exception("Unknown format: %s" % output_type)
         gl.Write()
+        # t1 = time.time()
+        # print "time gl2ps: ", (t1 - t0)
         plot = self.get3DPlot()
         if plot:
             plot.showWidgets()
@@ -1619,7 +1608,6 @@ class VTKVCSBackend(object):
             Renderer = self.createRenderer()
             self.renWin.AddRenderer(Renderer)
             Renderer.SetViewport(vp[0], vp[2], vp[1], vp[3])
-            # print 'vp ', vp
 
             if Yrg[0] > Yrg[1]:
                 # Yrg=[Yrg[1],Yrg[0]]
