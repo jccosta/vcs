@@ -141,17 +141,6 @@ def vtkToMatplotlib(renWin, fileName = None, outputType = "pdf"):
                     mapper.Update()
                     data = mapper.GetInput()
 
-                    sf = vtk.vtkShrinkPolyData()
-                    sf.SetShrinkFactor(1)
-                    sf.SetInputData(data)
-                    sf.Update()
-                    data = sf.GetOutput()
-
-                    ctop = vtk.vtkCellDataToPointData()
-                    ctop.AddInputData(data)
-                    ctop.Update()
-                    data = ctop.GetOutput()
-
                     filter = vtk.vtkTriangleFilter()
                     filter.SetInputData(data)
                     filter.Update()
@@ -232,8 +221,8 @@ def vtkToMatplotlib(renWin, fileName = None, outputType = "pdf"):
                         x[i] = mplpt[0]
                         y[i] = mplpt[1]
 
-                    if (data.GetPointData().GetNumberOfArrays() >= 1):
-                        vels = data.GetPointData().GetScalars()
+                    if (data.GetCellData().GetNumberOfArrays() >= 1):
+                        vels = data.GetCellData().GetScalars()
                         noOfComponents = vels.GetNumberOfComponents()
                         nvls = vels.GetNumberOfTuples()
                         ux = zeros(nvls)
@@ -252,7 +241,7 @@ def vtkToMatplotlib(renWin, fileName = None, outputType = "pdf"):
 
                             if triangles is not None:
                                 cmap = vtkToMatplotlibColor(mapper.GetLookupTable(), vels)
-                                a = axes.tripcolor(x, y, tri, ux, cmap=cmap)
+                                a = axes.tripcolor(x, y, tri, ux, cmap=cmap, edgecolor='none')
 
                                 if disableCliping:
                                     a.set_clip_on(False)
@@ -266,10 +255,12 @@ def vtkToMatplotlib(renWin, fileName = None, outputType = "pdf"):
     # plt.xlim((-200, 200))
     # plt.ylim((-100, 100))
     t1 = time.time()
-    print "export to matplotlib took: ", (t1 - t0)
+    print "build matplotlib model took: ", (t1 - t0)
 
     if (fileName):
         plt.savefig(fileName, format=outputType)
+        t2 = time.time()
+        print "save matplotlib model took: ", (t2 - t1)        
     else:
         plt.show()
     return
