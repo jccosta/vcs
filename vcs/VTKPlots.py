@@ -63,7 +63,9 @@ def vtkToMatplotlibColor(vtklut, scalars):
         cmap = ListedColormap(colors, 'mycmap')
     return cmap
 
-def vtkToMatplotlib(renWin, fileName = None):
+# Represent the render window as a matplotlib plot and then save it in outputType format.
+# If fileName is None, the matplotlib plot is shown.
+def vtkToMatplotlib(renWin, fileName = None, outputType = "pdf"):
     import math
     from numpy import zeros
     import matplotlib.pyplot as plt
@@ -267,7 +269,7 @@ def vtkToMatplotlib(renWin, fileName = None):
     print "export to matplotlib took: ", (t1 - t0)
 
     if (fileName):
-        plt.savefig(fileName)
+        plt.savefig(fileName, format=outputType)
     else:
         plt.show()
     return
@@ -1316,9 +1318,12 @@ class VTKVCSBackend(object):
                 break
         return plot
 
-    def vectorGraphics(self, output_type, file, width=None, height=None,
-                       units=None, textAsPaths=True):
+    def vectorGraphics(self, output_type, file, exporter="gl2ps", textAsPaths=True):
         """Export vector graphics to PDF, Postscript, SVG and EPS format.
+
+        exporter can be gl2ps or matplotlib. Export through gl2ps is currently much 
+        faster than export through matplotlib, but you might get better quality PDFs
+        through matplotlib.
 
        Reasoning for textAsPaths as default:
        The output formats supported by gl2ps which VTK uses for postscript/pdf/svg/etc
@@ -1343,8 +1348,9 @@ class VTKVCSBackend(object):
         if self.renWin is None:
             raise Exception("Nothing on Canvas to dump to file")
 
-        vtkToMatplotlib(self.renWin, file)
-        return
+        if (exporter == "matplotlib"):
+            vtkToMatplotlib(self.renWin, outputType=output_type, fileName=file)
+            return
 
         self.hideGUI()
 
@@ -1394,18 +1400,14 @@ class VTKVCSBackend(object):
 
         self.showGUI()
 
-    def postscript(self, file, width=None, height=None,
-                   units=None, textAsPaths=True):
-        return self.vectorGraphics("ps", file, width, height,
-                                   units, textAsPaths)
+    def postscript(self, file, exporter="gl2ps", textAsPaths=True):
+        return self.vectorGraphics("ps", file, exporter, textAsPaths)
 
-    def pdf(self, file, width=None, height=None, units=None, textAsPaths=True):
-        return self.vectorGraphics("pdf", file, width, height,
-                                   units, textAsPaths)
+    def pdf(self, file, exporter="gl2ps", textAsPaths=True):
+        return self.vectorGraphics("pdf", file, exporter, textAsPaths)
 
-    def svg(self, file, width=None, height=None, units=None, textAsPaths=True):
-        return self.vectorGraphics("svg", file, width,
-                                   height, units, textAsPaths)
+    def svg(self, file, exporter="gl2ps", textAsPaths=True):
+        return self.vectorGraphics("svg", file, exporter, textAsPaths)
 
     def gif(self, filename='noname.gif', merge='r', orientation=None,
             geometry='1600x1200'):

@@ -4744,7 +4744,7 @@ class Canvas(object):
             file, W, H, units, draw_white_background, **args)
 
     def pdf(self, file, width=None, height=None, units='inches',
-            textAsPaths=True):
+            textAsPaths=True, exporter="gl2ps"):
         """
         PDF output is another form of vector graphics.
 
@@ -4779,6 +4779,11 @@ class Canvas(object):
 
         :param textAsPaths: Specifies whether to render text objects as paths.
         :type textAsPaths: bool
+
+        :param exporter: Specify the exporter to use: gl2ps or matplotlib.
+        : gl2ps is the default exporter. It is much faster than matplotlib and
+        : gives good results. The matplotlib exporter might produce
+        : more optimized files in certain cases.
         """
         if units not in [
                 'inches', 'in', 'cm', 'mm', 'pixel', 'pixels', 'dot', 'dots']:
@@ -4790,10 +4795,10 @@ class Canvas(object):
 
         if not file.split('.')[-1].lower() in ['pdf']:
             file += '.pdf'
-        return self.backend.pdf(file, width=W, height=H, units=units, textAsPaths=textAsPaths)
+        return self.backend.pdf(file, textAsPaths=textAsPaths, exporter=exporter)
 
     def svg(self, file, width=None, height=None, units='inches',
-            textAsPaths=True):
+            textAsPaths=True, exporter = "gl2ps"):
         """
         SVG output is another form of vector graphics.
 
@@ -4827,6 +4832,11 @@ class Canvas(object):
 
         :param textAsPaths: Specifies whether to render text objects as paths.
         :type textAsPaths: bool
+
+        :param exporter: Specify the exporter to use: gl2ps or matplotlib.
+        : gl2ps is the default exporter. It is much faster than matplotlib and
+        : gives good results. The matplotlib exporter might produce
+        : more optimized files in certain cases.
         """
         if units not in [
                 'inches', 'in', 'cm', 'mm', 'pixel', 'pixels', 'dot', 'dots']:
@@ -4838,7 +4848,7 @@ class Canvas(object):
 
         if not file.split('.')[-1].lower() in ['svg']:
             file += '.svg'
-        return self.backend.svg(file, width=W, height=H, units=units, textAsPaths=textAsPaths)
+        return self.backend.svg(file, textAsPaths=textAsPaths, exporter=exporter)
 
     def _compute_margins(
             self, W, H, top_margin, bottom_margin, right_margin, left_margin, dpi):
