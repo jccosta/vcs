@@ -40,8 +40,10 @@ def vtkToMatplotlibText(axes, ren, prop):
         ha = 'left'
     elif textprop.GetJustification() == 2:
         ha = 'right'
-    axes.text(x, y, text, fontsize=textprop.GetFontSize() * 0.2,
-                ha=ha, va='center',
+    bold = textprop.GetBold()
+    weight = 'bold' if bold else 'normal'
+    axes.text(x, y, text, fontsize=textprop.GetFontSize(),
+                ha=ha, va='center', weight = weight,
                 rotation=textprop.GetOrientation())
 
 def vtkToMatplotlibColor(vtklut, scalars):
@@ -88,9 +90,9 @@ def vtkToMatplotlib(renWin, fileName = None, outputType = "pdf"):
 
     # Initialize mpl plot
     renwinSize = renWin.GetSize()
-    aspect = renwinSize[0]/float(renwinSize[1])
-
-    fig = plt.figure(1, figsize=(renwinSize[0]/300., renwinSize[1]/300.), dpi=300)
+    dpi = renWin.GetDPI()
+    print "renwinSize, ", renwinSize
+    fig = plt.figure(figsize=(float(renwinSize[0])/dpi, float(renwinSize[1])/dpi), dpi=dpi)
     fig.set_facecolor('white')
 
     
