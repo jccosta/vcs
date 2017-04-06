@@ -7,9 +7,10 @@ import sys
 pth = os.path.dirname(__file__)
 sys.path.append(pth)
 import checkimage
+import nose.tools
 # import glob
 
-class VCSBaseTest(unittest.TestCase):
+class VCSBaseTestScript(object):
 
     def __init__(self, *args, **kwargs):
         self.geometry = {"width": 1200, "height": 1091}
@@ -20,7 +21,7 @@ class VCSBaseTest(unittest.TestCase):
         if 'bg' in kwargs:
             self.bg = kwargs['bg']
             del kwargs['bg']
-        super(VCSBaseTest, self).__init__(*args, **kwargs)
+        super(VCSBaseTestScript, self).__init__(*args, **kwargs)
 
     def setUp(self):
         # This is for circleci that crashes for any mac bg=True
@@ -60,7 +61,7 @@ class VCSBaseTest(unittest.TestCase):
         if not pngReady:
             self.x.png(fnm,width=self.x.bgX,height=self.x.bgY,units="pixels")
         ret = checkimage.check_result_image(fnm,src,threshold)
-        self.assertEqual(ret,0)
+        nose.tools.assert_equal(ret,0)
         return ret
 
     def check_values_setting(self,gm,attributes,good_values=[],bad_values=[]):
@@ -85,6 +86,9 @@ class VCSBaseTest(unittest.TestCase):
 		nm=gm.p_name
 	      raise Exception,"Should not be able to set %s attribute '%s' to %s" % (nm,att,repr(val))
 
+class VCSBaseTest(VCSBaseTestScript, unittest.TestCase):
+    def __init__(self, *args, **kwargs):    
+        super(VCSBaseTest, self).__init__(*args, **kwargs)
 
 def run():
     unittest.main()

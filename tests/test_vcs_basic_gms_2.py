@@ -4,9 +4,19 @@ import MV2
 import cdms2
 import os
 
-class TestVCSBasicGms(basevcstest.VCSBaseTest):
-    def basicGm(self,gm_type,projtype="default",lat1=0,lat2=0,lon1=0,lon2=0,rg=False,flip=False,zero=False,transparent=False,mask=False,bigvalues=False,color=False):
+class TestVCSBasicGms(basevcstest.VCSBaseTestScript):
+    def basicGm(self, gm_type, zero=False,
+                transparent=False, mask=False, color=False):
 
+        projtype = "default"
+        lat1 = 0
+        lat2 = 0
+        lon1 = 0
+        lon2 = 0
+        rg = False
+        flip = False
+        bigvalues=False
+        
         self.x.clear()
         self.x.setcolormap(None)
         cdms2.tvariable.TransientVariable.variable_count = 1
@@ -116,15 +126,37 @@ class TestVCSBasicGms(basevcstest.VCSBaseTest):
             fnm+="_transparent"
         fnm+=nm_xtra
         self.checkImage(fnm+'.png',threshold=20)
-    def testBasicGms(self):
-        for gm in "boxfill isofill isoline vector streamline streamline_colored meshfill yxvsx xvsy xyvsy 1d scatter".split():
-            if gm.find("_colored")>-1:
-                gm = gm.split("_colored")[0]
-                color=True
-            else:
-                color = False
-            self.basicGm(gm,color=color)
-            self.basicGm(gm,transparent=True,color=color)
-            self.basicGm(gm,zero=True,color=color)
-            self.basicGm(gm,color=color)
-            self.basicGm(gm,mask=True,color=color)
+        
+def buildName(gm, zero, transparent, mask, color):
+    name = "test_vcs_%s"%(gm)
+    if (gm == 'streamline' and color):
+        name += "_colored"
+    if (transparent):
+        name += "_transparent"
+    if (zero):
+        name += "_zero"
+    if (mask):
+        name += "_masked"
+    return name    
+
+def testBasicGms():
+    s = TestVCSBasicGms()
+    s.setUp()
+    for gm in ("boxfill isofill isoline vector streamline streamline_colored " +
+               "meshfill yxvsx xvsy xyvsy 1d scatter").split():
+        zero=       [False, False, True,  False]
+        transparent=[False, True,  False, False]
+        mask=       [False, False, False, True]
+        color=False
+        if gm.find("_colored")>-1:
+            gm = gm.split("_colored")[0]
+            color=True
+        else:
+            color = False
+            
+        for i in range(0,4):
+            def basicGm(s, gm, zero, transparent, mask, color):
+                s.basicGm(gm, zero, transparent, mask, color)
+            basicGm.description = buildName(gm, zero[i], transparent[i], mask[i], color)
+            yield (basicGm, s, gm, zero[i], transparent[i], mask[i], color)
+    s.tearDown()
