@@ -2490,7 +2490,8 @@ def drawLinesAndMarkersLegend(canvas, templateLegend,
                               linecolors, linetypes, linewidths,
                               markercolors, markertypes, markersizes,
                               strings, scratched=None, stringscolors=None,
-                              stacking="horizontal", bg=False, render=True):
+                              stacking="horizontal", bg=False, render=True,
+                              backgroundcolor=None):
     """Draws a legend with line/marker/text inside a template legend box
     Auto adjust text size to make it fit inside the box
     Auto arrange the elements to fill the box nicely
@@ -2564,8 +2565,23 @@ def drawLinesAndMarkersLegend(canvas, templateLegend,
     :param render: Boolean value indicating whether or not to render the new
         lines and markers.
     :type render: `bool`_
+
+    :param backgroundcolor: A list indicating the background color of the legended box.
+            Colors are represented as either an int from 0-255, an rgba tuple,
+            or a string color name.
+    :type markercolors: `list`_
     """
 
+    # backgroundcolor
+    if backgroundcolor is not None:
+        # Adding a fill area above the legends
+        fa = canvas.createfillarea()
+        fa.x = [[templateLegend.x1, templateLegend.x2, templateLegend.x2, templateLegend.x1, templateLegend.x1]]
+        fa.y = [[templateLegend.y1, templateLegend.y1, templateLegend.y2, templateLegend.y2, templateLegend.y1]]
+        fa.style = ["solid"]
+        fa.color = backgroundcolor
+        canvas.plot(fa)
+    
     nlines = len(linecolors)
     # Now figures out the widest string and tallest
     text = vcs.createtext(To_source=templateLegend.textorientation,
