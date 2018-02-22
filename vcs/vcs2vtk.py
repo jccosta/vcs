@@ -964,11 +964,21 @@ def doWrapData(data, wc, wrap=[0., 360], fastClip=True):
     surface.SetInputData(data)
     surface.Update()
     data = surface.GetOutput()
-
     bounds = data.GetBounds()
     # insure that GLOBALIDS are not removed by the append filter
     attributes = data.GetCellData()
-    attributes.SetActiveAttribute(-1, attributes.GLOBALIDS)
+    globalIds = attributes.GetGlobalIds()
+    globalIdsName = None
+    if (globalIds):
+        globalIdsName = globalIds.GetName()
+    attributes.SetActiveAttribute(-1, vtk.vtkDataSetAttributes.GLOBALIDS)
+    # insure that vtkTransformPolyData does not change the VECTORS attribute
+    pointAttributes = data.GetPointData()
+    vectors = pointAttributes.GetVectors()
+    vectorsName = None
+    if (vectors):
+        vectorsName = vectors.GetName()
+    pointAttributes.SetActiveAttribute(-1, vtk.vtkDataSetAttributes.VECTORS)
     xmn = min(wc[0], wc[1])
     xmx = max(wc[0], wc[1])
     if (numpy.allclose(xmn, 1.e20) or numpy.allclose(xmx, 1.e20)):
@@ -1061,13 +1071,18 @@ def doWrapData(data, wc, wrap=[0., 360], fastClip=True):
         clipper.SetClipFunction(clipBox)
     clipper.SetInputConnection(appendFilter.GetOutputPort())
     clipper.Update()
-    # set globalids attribute
-    attributes = clipper.GetOutput().GetCellData()
-    globalIdsIndex = vtk.mutable(-1)
-    attributes.GetArray("GlobalIds", globalIdsIndex)
-    attributes.SetActiveAttribute(globalIdsIndex, attributes.GLOBALIDS)
-
-    return clipper.GetOutput()
+    result = clipper.GetOutput()
+    if (globalIdsName):
+        attributes = result.GetCellData()
+        index = vtk.mutable(-1)
+        attributes.GetArray(globalIdsName, index)
+        attributes.SetActiveAttribute(index, vtk.vtkDataSetAttributes.GLOBALIDS)
+    if (vectorsName):
+        index = vtk.mutable(-1)
+        pointAttributes = result.GetPointData()
+        pointAttributes.GetArray(vectorsName, index)
+        pointAttributes.SetActiveAttribute(index, vtk.vtkDataSetAttributes.VECTORS)
+    return result
 
 
 # Wrap grid in interval minX, minX + 360
@@ -1467,13 +1482,16 @@ def prepFillarea(context, renWin, farea, cmap=None):
     return actors
 
 
-def genPoly(coords, pts, filled=True):
+def genPoly(coords, pts, filled=True, scale=1.):
     N = pts.GetNumberOfPoints()
     if filled:
         poly = vtk.vtkPolygon()
     else:
         poly = vtk.vtkPolyLine()
     pid = poly.GetPointIds()
+    if scale != 1.:
+        coords = numpy.array(coords) * scale
+        coords = coords.tolist()
     n = len(coords)
     pid.SetNumberOfIds(n)
     for j in range(n):
@@ -1486,22 +1504,26 @@ def genPoly(coords, pts, filled=True):
 
 
 def prepGlyph(g, marker, index=0):
-    t, s = marker.type[index], marker.size[index] * .5
+    t, s = marker.type[index], marker.size[index]
     gs = vtk.vtkGlyphSource2D()
     pd = None
 
     if t == 'dot':
         gs.SetGlyphTypeToCircle()
         gs.FilledOn()
-        s *= numpy.pi
+        gs.SetResolution(25)
+        s /= 5.  # We want tiny dots not filled circles
     elif t == 'circle':
         gs.SetGlyphTypeToCircle()
         gs.FilledOff()
+        gs.SetResolution(25)
     elif t == 'plus':
         gs.SetGlyphTypeToCross()
+        gs.CrossOn()
         gs.FilledOff()
     elif t == 'cross':
         gs.SetGlyphTypeToCross()
+        gs.CrossOn()
         gs.SetRotationAngle(45)
         gs.FilledOff()
     elif t[:6] == 'square':
@@ -1522,15 +1544,16 @@ def prepGlyph(g, marker, index=0):
         elif t[9] == "u":
             gs.SetRotationAngle(0)
     elif t == "hurricane":
-        s = s / 5.
+        scale_factor = s / 275.
         ds = vtk.vtkDiskSource()
-        ds.SetInnerRadius(.55 * s)
-        ds.SetOuterRadius(1.01 * s)
+        ds.SetInnerRadius(.55 * scale_factor)
+        ds.SetOuterRadius(1.01 * scale_factor)
         ds.SetCircumferentialResolution(90)
         ds.SetRadialResolution(30)
         gf = vtk.vtkGeometryFilter()
         gf.SetInputConnection(ds.GetOutputPort())
         gf.Update()
+        scale_factor *= 2.  # we need to add a factr 2 for the "arms"
         pd1 = gf.GetOutput()
         apd = vtk.vtkAppendPolyData()
         apd.AddInputData(pd1)
@@ -1543,52 +1566,41 @@ def prepGlyph(g, marker, index=0):
         angle2 = .88 * numpy.pi
         while angle1 <= angle2:
             coords.append(
-                [s * 2 + 2 * s * numpy.cos(angle1), 2 * s * numpy.sin(angle1)])
+                [1 + numpy.cos(angle1), numpy.sin(angle1)])
             angle1 += add_angle
         angle1 = .79 * numpy.pi
         angle2 = .6 * numpy.pi
         while angle1 >= angle2:
-            coords.append([s *
-                           2.25 +
-                           s *
-                           4 *
+            coords.append([1.125 +
+                           2 *
                            numpy.cos(angle1), -
-                           s *
-                           2 +
-                           s *
-                           4 *
+                           1 +
+                           2 *
                            numpy.sin(angle1)])
             angle1 -= add_angle
-        poly = genPoly(coords, pts, filled=True)
+        poly = genPoly(coords, pts, filled=True, scale=scale_factor)
         polygons.InsertNextCell(poly)
         coords = []
         angle1 = 1.6 * numpy.pi
         angle2 = 1.9 * numpy.pi
         while angle1 <= angle2:
             coords.append([-
-                           s *
-                           2 +
-                           s *
-                           2 *
-                           numpy.cos(angle1), s *
-                           2 *
+                           1 +
+                           numpy.cos(angle1),
                            numpy.sin(angle1)])
             angle1 += add_angle
         angle1 = 1.8 * numpy.pi
         angle2 = 1.6 * numpy.pi
         while angle1 >= angle2:
             coords.append([-
-                           s *
-                           2.27 +
-                           s *
-                           4 *
-                           numpy.cos(angle1), s *
-                           2 +
-                           s *
-                           4 *
+                           1.135 +
+                           2 *
+                           numpy.cos(angle1),
+                           1 +
+                           2 *
                            numpy.sin(angle1)])
             angle1 -= add_angle
-        poly = genPoly(coords, pts, filled=True)
+        poly = genPoly(coords, pts, filled=True, scale=scale_factor)
         polygons.InsertNextCell(poly)
         pd.SetPoints(pts)
         pd.SetPolys(polygons)
@@ -1597,7 +1609,7 @@ def prepGlyph(g, marker, index=0):
         g.SetSourceData(apd.GetOutput())
     elif t[:4] == "star":
         np = 5
-        points = starPoints(.001 * s, 0, 0, np)
+        points = starPoints(s*.006, 0, 0, np)
 
         pts = vtk.vtkPoints()
         # Add all perimeter points
@@ -1633,15 +1645,13 @@ def prepGlyph(g, marker, index=0):
         pd = vtk.vtkPolyData()
         polys = vtk.vtkCellArray()
         lines = vtk.vtkCellArray()
-        s *= 3
         # Lines first
+        scale_json_values = s / 30.
         for l in params["line"]:
-            coords = numpy.array(list(zip(*l))) * s / 30.
-            line = genPoly(coords.tolist(), pts, filled=False)
+            line = genPoly(list(zip(*l)), pts, filled=False, scale=scale_json_values)
             lines.InsertNextCell(line)
         for l in params["poly"]:
-            coords = numpy.array(list(zip(*l))) * s / 30.
-            line = genPoly(coords.tolist(), pts, filled=True)
+            line = genPoly(list(zip(*l)), pts, filled=True, scale=scale_json_values)
             polys.InsertNextCell(line)
         geo, pts = project(pts, marker.projection, marker.worldcoordinate)
         pd.SetPoints(pts)
@@ -1659,7 +1669,7 @@ def prepGlyph(g, marker, index=0):
         # Use the difference in x to scale the point, as later we'll use the
         # x range to correct the aspect ratio:
         dx = marker.worldcoordinate[1] - marker.worldcoordinate[0]
-        s *= abs(float(dx)) / 500.
+        s *= abs(float(dx)) / 110.
         gs.SetScale(s)
         gs.Update()
         g.SetSourceConnection(gs.GetOutputPort())
